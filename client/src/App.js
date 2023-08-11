@@ -8,8 +8,12 @@ const App = () => {
   const [showModal, setShowModal] = useState(true);
   const [timer, setTimer] = useState(0);
   const [startButtonDisabled, setStartButtonDisabled] = useState(false);
+  const [lastClickedUser, setLastClickedUser] = useState("");
+  const [lastRaisedUser, setLastRaisedUser] = useState("");
+  const [userSalvato, setUserSalvato] = useState("");
 
-  const socket = io("http://localhost:3000");
+  const socket = io("http://localhost:3001");
+
 
   useEffect(() => {
   
@@ -21,9 +25,29 @@ const App = () => {
       setTimer(newTimer);
     });  
 
+    socket.on("disableStartButton", () => {
+      setStartButtonDisabled(true);
+    });
+
+    socket.on("enableStartButton", () => {
+      setStartButtonDisabled(false);
+    });
+
+    socket.on("showLastClickedUser", (user) => {
+      setLastClickedUser(user);
+    });
+
+    socket.on("showLastRaisedUser", (user) => {
+      setLastRaisedUser(user);
+    });
+
     return () => {
       socket.off("users");
       socket.off("updateTimer");
+      socket.off("disableStartButton");
+      socket.off("enableStartButton");
+      socket.off("showLastClickedUser");
+      socket.off("showLastRaisedUser");
     };
   }, []);
 
@@ -33,7 +57,7 @@ const App = () => {
       if (timer > 0) {
         setTimer((prevTimer) => prevTimer - 1);
       }else {
-        setStartButtonDisabled(false); // Riabilita il pulsante quando il timer è scaduto
+        resetStartButton(); // Riabilita il pulsante quando il timer è scaduto
         clearInterval(interval); // Ferma l'intervallo
       }
     }, 1000);
@@ -41,6 +65,7 @@ const App = () => {
     // Pulisci l'intervallo quando il componente si dismonta
     return () => {
       clearInterval(interval);
+      socket.off("disableStartButton"); 
     };
   }, [timer]);
 
@@ -49,6 +74,7 @@ const App = () => {
       return alert("Devi aggiungere il tuo nome");
     }
     socket.emit("adduser", usernameInput);
+    setUserSalvato(usernameInput);
     setShowModal(false);
     setUsernameInput("");
     const backdrop = document.querySelector(".backdrop");
@@ -57,13 +83,20 @@ const App = () => {
 
   const startTimer = () => {
     if (!startButtonDisabled) { // Verifica se il pulsante è abilitato
-      socket.emit("startTimer");
+      socket.emit("startTimer", userSalvato);
       setStartButtonDisabled(true); // Disabilita il pulsante dopo il primo clic
+      setLastClickedUser(userSalvato);
     }
+
+  };
+
+  const resetStartButton = () => {
+    socket.emit("resetStartButton");
   };
 
   const resetTimer = () => {
-    socket.emit("resetTimer");
+    socket.emit("resetTimer", userSalvato);
+    setLastRaisedUser(userSalvato);
   };
 
 
@@ -117,7 +150,8 @@ const App = () => {
                   </span>
               </button>
         </div>
-      
+        <p>Ultimo utente che ha avviato l'asta: {lastClickedUser}</p>
+        <p>Ultimo utente che ha rilanciato: {lastRaisedUser}</p>
     </div>
 
     
