@@ -9,13 +9,14 @@ const io = require('socket.io')(server, {
 });
 
 
-let port = 3000
+let port = 3001
 let timerStarted = false; 
 let timer = 0;
+let lastClickedUser = "";
 const users = []
 
 server.listen(port, () => {
-    console.log("listening at port 3000")
+    console.log("listening at port 3001")
 });
 io.on('connection', (socket) => {
     console.log('connected to', socket.id)
@@ -23,16 +24,13 @@ io.on('connection', (socket) => {
 
     socket.on("adduser", (username) => {
         socket.user = username;
+        lastClickedUser = username;
         users.push(username)
         console.log("latest users", users)
+        console.log(lastClickedUser)
         io.sockets.emit("users", users)
     })
-    socket.on("message", (message) => {
-        io.sockets.emit("message", {
-            user: socket.user,
-            message: message,
-        })
-    })
+   
     socket.on("disconnect", () => {
         console.log("deleting ", socket.user)
 
@@ -43,17 +41,27 @@ io.on('connection', (socket) => {
         console.log('remaining users: ', users)
     });
 
-    socket.on("startTimer", () => {
+    socket.on("startTimer", (username) => {
+        if (timerStarted) {
+            return; // Evita di avviare il timer se è già stato avviato
+        }
+            timerStarted = true;
             timer = 10;
             io.sockets.emit("updateTimer", timer);
             io.sockets.emit("disableStartButton"); // Invia un segnale per disabilitare il pulsante
-        
+            io.sockets.emit("showLastClickedUser", username);
   });
 
-  socket.on("resetTimer", () => {
+  socket.on("resetTimer", (username) => {
     timer = 10;
     io.sockets.emit("updateTimer", timer);
+    io.sockets.emit("showLastRaisedUser", username);
   });
+
+  socket.on("resetStartButton", () => {
+    timerStarted = false;
+    io.sockets.emit("enableStartButton"); // Invia un segnale per riabilitare il pulsante
+});
 
   socket.on("increaseTimer", () => {
     timer += 10;
